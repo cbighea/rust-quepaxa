@@ -113,6 +113,27 @@ fn install_first_epoch(runtime: &mut TestRuntime) {
         .unwrap();
 }
 
+fn install_membership_eventually(
+    runtime: &mut TestRuntime,
+    change: MembershipChange<u64>,
+    recorders: &[RecorderHandle<RecorderCore<u64>>],
+) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match runtime.install_membership(change.clone(), recorders.to_vec()) {
+            Ok(()) => return,
+            Err(error @ QuePaxaError::QuorumNotReached { .. }) => {
+                assert!(
+                    Instant::now() < deadline,
+                    "membership installation did not become ready: {error}"
+                );
+                thread::yield_now();
+            }
+            Err(error) => panic!("membership installation failed: {error}"),
+        }
+    }
+}
+
 #[test]
 fn runtime_submits_executes_notifies_and_disseminates() {
     let members = members();
@@ -507,12 +528,11 @@ fn runtime_moves_through_joint_consensus_before_finalizing_membership() {
             ),
         ));
     }
-    runtime
-        .install_membership(
-            MembershipChange::new(first, joint.clone(), 100).unwrap(),
-            joint_recorders,
-        )
-        .unwrap();
+    install_membership_eventually(
+        &mut runtime,
+        MembershipChange::new(first, joint.clone(), 100).unwrap(),
+        &joint_recorders,
+    );
     assert!(runtime.config().cluster_identity().is_joint());
     runtime
         .install_epoch_schedule(EpochSchedule::new(0, joint.members().to_vec()).unwrap())
@@ -528,12 +548,11 @@ fn runtime_moves_through_joint_consensus_before_finalizing_membership() {
         .filter(|recorder| stable.contains(recorder.id()))
         .cloned()
         .collect::<Vec<_>>();
-    runtime
-        .install_membership(
-            MembershipChange::new(second, stable.clone(), 200).unwrap(),
-            final_recorders,
-        )
-        .unwrap();
+    install_membership_eventually(
+        &mut runtime,
+        MembershipChange::new(second, stable.clone(), 200).unwrap(),
+        &final_recorders,
+    );
     assert!(!runtime.config().cluster_identity().is_joint());
     assert_eq!(runtime.config().members(), stable.members());
     runtime

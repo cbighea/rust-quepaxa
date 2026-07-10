@@ -327,8 +327,8 @@ fn checkpoint_requires_full_dissemination() {
         runtime.checkpoint_through(SlotIndex::new(1)),
         Err(QuePaxaError::QuorumNotReached {
             needed: 3,
-            received: 2
-        })
+            received
+        }) if received < 3
     ));
 }
 

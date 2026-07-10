@@ -236,7 +236,7 @@ impl<C: Send + 'static> RecorderHandle<C> {
         if thread::Builder::new()
             .name(format!("quepaxa-recorder-aux-{}", self.id))
             .spawn(move || {
-                let _guard = InFlightGuard(in_flight);
+                let guard = InFlightGuard(in_flight);
                 let result = catch_unwind(AssertUnwindSafe(|| {
                     let mut client = client.lock().map_err(|_| {
                         QuePaxaError::TransportError("recorder client lock was poisoned".into())
@@ -248,6 +248,7 @@ impl<C: Send + 'static> RecorderHandle<C> {
                         "recorder client panicked while handling an RPC".into(),
                     ))
                 });
+                drop(guard);
                 let _ = sender.send(result);
             })
             .is_err()
@@ -745,4 +746,20 @@ pub fn quorum_size(replica_count: usize) -> Result<usize> {
         return Err(QuePaxaError::EmptyCluster);
     }
     Ok(replica_count / 2 + 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auxiliary_call_releases_endpoint_before_returning() {
+        let recorder = RecorderHandle::new(ReplicaId::new(1), ());
+
+        recorder
+            .call_with_timeout(Duration::from_secs(1), |_| Ok(()))
+            .unwrap();
+
+        assert!(recorder.is_idle());
+    }
 }

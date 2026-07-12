@@ -214,7 +214,3 @@ For a more detailed operational checklist, see [PRODUCTION.md](PRODUCTION.md).
 - [Paper-parity assessment](../PAPER_PARITY.md) — what matches the paper, what
   supports production readiness, and what remains environment-specific.
 - [QuePaxa paper](https://bford.info/pub/os/quepaxa/quepaxa.pdf) — the paper implemented by this crate.
-
-## License
-
-This project is licensed under the [BSD 3-Clause License](LICENSE).
